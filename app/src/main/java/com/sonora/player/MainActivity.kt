@@ -47,9 +47,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-private val BG = Color(0xFF0B0A12)
-private val SurfaceDark = Color(0xFF1B1927)
-private val Accent = Color(0xFFBB92FA)
+private val BG = Color(0xFF050506)
+private val SurfaceDark = Color(0xFF1A1A1D)
+private val Accent = Color(0xFF90A8E8)
 private val White = Color(0xFFF4F1FA)
 private data class Track(val uri: Uri, val title: String, val subtitle: String)
 
@@ -79,6 +79,8 @@ private fun SonoraApp() {
     var gifMode by remember { mutableStateOf(prefs.getString("gif_mode", "cover") ?: "cover") }
     var dim by remember { mutableFloatStateOf(prefs.getFloat("dim", 0.35f)) }
     var screen by remember { mutableStateOf("library") }
+    var category by remember { mutableStateOf("Все треки") }
+    var searchFilter by remember { mutableStateOf("Все") }
     var libraryTab by remember { mutableStateOf("Песни") }
     var query by remember { mutableStateOf("") }
     var tracks by remember { mutableStateOf(emptyList<Track>()) }
@@ -158,54 +160,67 @@ private fun SonoraApp() {
                 if (screen != "library") IconButton(onClick = { screen = "library" }) { Icon(Icons.Default.ArrowBack, "Назад", tint = White) }
                 Column(Modifier.weight(1f)) {
                     Text("SONORA", fontWeight = FontWeight.Black, fontSize = 24.sp, letterSpacing = 4.sp, color = White)
-                    Text(when(screen) { "player" -> "NOW PLAYING"; "settings" -> "НАСТРОЙКИ"; "queue" -> "ОЧЕРЕДЬ"; else -> "YOUR MUSIC" }, color = Accent, fontSize = 10.sp, letterSpacing = 2.sp)
+                    Text(when(screen) { "player" -> "NOW PLAYING"; "settings" -> "НАСТРОЙКИ"; "queue" -> "ОЧЕРЕДЬ"; "search" -> "ПОИСК"; "equalizer" -> "ЗВУК"; else -> "БИБЛИОТЕКА" }, color = Accent, fontSize = 10.sp, letterSpacing = 2.sp)
                 }
                 IconButton(onClick = { screen = "settings" }) { Icon(Icons.Default.Settings, "Настройки", tint = White) }
             }
             when(screen) {
-                "library" -> {
-                    Text("Моя музыка", Modifier.padding(start = 22.dp, top = 12.dp, bottom = 12.dp), color = White, fontWeight = FontWeight.Bold, fontSize = 29.sp)
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Песни", "Альбомы", "Исполнители", "Папки").forEach { tab ->
-                            FilterChip(selected = libraryTab == tab, onClick = { libraryTab = tab }, label = { Text(tab) })
-                        }
-                    }
-                    OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp), singleLine = true, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text("Поиск музыки") }, shape = RoundedCornerShape(16.dp))
-                    if (tracks.isEmpty()) {
-                        Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Icon(Icons.Default.LibraryMusic, null, Modifier.size(74.dp), tint = Accent)
-                            Spacer(Modifier.height(18.dp))
-                            Text("Добавь свою музыку", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                            Text("Выбери папку с аудиофайлами", color = White.copy(alpha = .65f))
-                            Spacer(Modifier.height(20.dp))
-                            Button(onClick = { folderPicker.launch(null) }) { Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Выбрать папку") }
+                "library", "search" -> {
+                    if (screen == "library" && category == "Все треки") {
+                        Text("Библиотека", Modifier.padding(start = 22.dp, top = 12.dp, bottom = 12.dp), color = White, fontWeight = FontWeight.Bold, fontSize = 30.sp)
+                        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 12.dp)) {
+                            val sections = listOf("Все треки", "Папки", "Альбомы", "Исполнители", "Жанры", "Очередь")
+                            itemsIndexed(sections) { _, item ->
+                                Row(Modifier.fillMaxWidth().clickable { if (item == "Очередь") screen = "queue" else category = item }.padding(horizontal = 24.dp, vertical = 17.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(when(item) { "Папки" -> Icons.Default.Folder; "Альбомы" -> Icons.Default.Album; "Исполнители" -> Icons.Default.Person; "Жанры" -> Icons.Default.Category; "Очередь" -> Icons.Default.QueueMusic; else -> Icons.Default.LibraryMusic }, null, tint = Accent, modifier = Modifier.size(29.dp))
+                                    Spacer(Modifier.width(24.dp)); Text(item, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                                    Spacer(Modifier.weight(1f)); Icon(Icons.Default.ChevronRight, null, tint = White.copy(alpha = .45f))
+                                }
+                            }
+                            item { OutlinedButton(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp)) { Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Выбрать папку с музыкой") } }
                         }
                     } else {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (screen == "library") IconButton(onClick = { category = "Все треки" }) { Icon(Icons.Default.ArrowBack, "Назад", tint = White) }
+                            Text(if (screen == "search") "Поиск" else category, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        }
+                        if (screen == "search") {
+                            OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), singleLine = true, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text("Название или исполнитель") }, shape = RoundedCornerShape(28.dp))
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("Все", "Треки", "Альбомы", "Исполнители").forEach { filter -> FilterChip(selected = searchFilter == filter, onClick = { searchFilter = filter }, label = { Text(filter) }) }
+                            }
+                        }
                         val filtered = tracks.withIndex().filter { it.value.title.contains(query, true) || it.value.subtitle.contains(query, true) }
-                        val entries = when(libraryTab) {
-                            "Исполнители" -> filtered.groupBy { it.value.subtitle }.toList().map { it.first to it.second.first().index }
-                            "Альбомы" -> filtered.groupBy { it.value.subtitle }.toList().map { it.first to it.second.first().index }
-                            "Папки" -> filtered.groupBy { it.value.uri.toString().substringBeforeLast('/') }.toList().map { "Папка ${it.second.size} треков" to it.second.first().index }
+                        val groupMode = if (screen == "search") when(searchFilter) { "Альбомы" -> "Альбомы"; "Исполнители" -> "Исполнители"; else -> "Все треки" } else category
+                        val groups = when(groupMode) {
+                            "Исполнители" -> filtered.groupBy { it.value.subtitle }.map { it.key to it.value.first().index }
+                            "Альбомы" -> filtered.groupBy { it.value.subtitle }.map { it.key to it.value.first().index }
+                            "Папки" -> filtered.groupBy { it.value.uri.toString().substringBeforeLast('/') }.map { "Папка · ${it.value.size} треков" to it.value.first().index }
+                            "Жанры" -> listOf("Все жанры · ${filtered.size} треков" to (filtered.firstOrNull()?.index ?: 0))
                             else -> emptyList()
                         }
-                        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 12.dp)) {
-                            if (libraryTab == "Песни") itemsIndexed(filtered) { _, indexed ->
-                                TrackRow(indexed.value.title, indexed.value.subtitle, indexed.index == selectedIndex, onClick = {
-                                    player?.seekTo(indexed.index, 0); player?.play(); screen = "player"
-                                })
-                            } else itemsIndexed(entries) { _, entry ->
-                                TrackRow(entry.first, libraryTab, false, onClick = { player?.seekTo(entry.second, 0); player?.play(); screen = "player" })
+                        if (tracks.isEmpty()) {
+                            Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                Icon(Icons.Default.LibraryMusic, null, Modifier.size(60.dp), tint = Accent)
+                                Spacer(Modifier.height(12.dp)); Text("Музыка ещё не добавлена")
+                                Spacer(Modifier.height(12.dp)); Button(onClick = { folderPicker.launch(null) }) { Text("Выбрать папку") }
                             }
+                        } else LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 10.dp)) {
+                            if (groups.isEmpty()) itemsIndexed(filtered) { _, item -> TrackRow(item.value.title, item.value.subtitle, item.index == selectedIndex) { player?.seekTo(item.index, 0); player?.play(); screen = "player" } }
+                            else itemsIndexed(groups) { _, item -> TrackRow(item.first, groupMode, false) { player?.seekTo(item.second, 0); player?.play(); screen = "player" } }
                         }
                     }
                     if (tracks.isNotEmpty()) MiniPlayer(current, playing, onPlay = { if (playing) player?.pause() else player?.play() }, onOpen = { screen = "player" })
+                    SonoraNavigation(selected = if (screen == "search") "search" else "library", onNavigate = { target ->
+                        when(target) { "library" -> { screen = "library"; category = "Все треки" }; "equalizer" -> screen = "equalizer"; "search" -> screen = "search"; "settings" -> screen = "settings" }
+                    })
                 }
                 "player" -> {
                     Column(Modifier.fillMaxSize().padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Spacer(Modifier.weight(0.7f))
-                        if (gifMode == "cover" || gifUri == null) {
+                        if (gifMode != "fullscreen" || gifUri == null) {
                             Box(Modifier.fillMaxWidth(.82f).aspectRatio(1f).clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(listOf(Color(0xFF4D3279), SurfaceDark, BG))), contentAlignment = Alignment.Center) {
-                                if (gifUri != null) AsyncImage(model = gifUri, imageLoader = imageLoader, contentDescription = "GIF обложка", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                if (gifUri != null && gifMode == "cover") AsyncImage(model = gifUri, imageLoader = imageLoader, contentDescription = "GIF обложка", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                 else Icon(Icons.Default.GraphicEq, null, Modifier.size(100.dp), tint = Accent)
                             }
                         } else Spacer(Modifier.weight(1f))
@@ -222,9 +237,9 @@ private fun SonoraApp() {
                         Spacer(Modifier.height(14.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { shuffle = !shuffle; player?.shuffleModeEnabled = shuffle }) { Icon(Icons.Default.Shuffle, "Перемешать", tint = if (shuffle) Accent else White) }
-                            IconButton(onClick = { player?.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Назад", Modifier.size(36.dp)) }
+                            IconButton(onClick = { player?.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Назад", Modifier.size(36.dp), tint = White) }
                             IconButton(onClick = { if (playing) player?.pause() else player?.play() }, modifier = Modifier.size(72.dp).clip(CircleShape).background(Accent)) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Воспроизвести", Modifier.size(40.dp), tint = BG) }
-                            IconButton(onClick = { player?.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, "Далее", Modifier.size(36.dp)) }
+                            IconButton(onClick = { player?.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, "Далее", Modifier.size(36.dp), tint = White) }
                             IconButton(onClick = { repeat = when(repeat) { Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL; Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE; else -> Player.REPEAT_MODE_OFF }; player?.repeatMode = repeat }) { Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Default.RepeatOne else Icons.Default.Repeat, "Повтор", tint = if (repeat != Player.REPEAT_MODE_OFF) Accent else White) }
                         }
                         Spacer(Modifier.height(22.dp))
@@ -239,11 +254,24 @@ private fun SonoraApp() {
                     Text("Очередь воспроизведения", Modifier.padding(20.dp), fontSize = 23.sp, fontWeight = FontWeight.Bold)
                     LazyColumn { itemsIndexed(tracks) { index, track -> TrackRow(track.title, track.subtitle, index == selectedIndex) { player?.seekTo(index, 0); player?.play(); screen = "player" } } }
                 }
+                "equalizer" -> {
+                    Column(Modifier.fillMaxSize().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Эквалайзер", fontSize = 29.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(20.dp))
+                        Icon(Icons.Default.Equalizer, null, Modifier.size(80.dp), tint = Accent)
+                        Spacer(Modifier.height(20.dp))
+                        Text("Звуковой эквалайзер появится в следующем этапе", color = White)
+                        Spacer(Modifier.height(8.dp))
+                        Text("В этой версии звуковой сигнал не изменяется. Мы не показываем фиктивные ползунки эквалайзера.", color = White.copy(alpha = .65f))
+                        Spacer(Modifier.weight(1f))
+                    }
+                    SonoraNavigation(selected = "equalizer", onNavigate = { screen = it; if (it == "library") category = "Все треки" })
+                }
                 "settings" -> {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text("Внешний вид", fontSize = 25.sp, fontWeight = FontWeight.Bold)
                         Text("Режим GIF", color = Accent, fontWeight = FontWeight.SemiBold)
-                        listOf("cover" to "GIF вместо обложки", "fullscreen" to "GIF на весь экран").forEach { (value, label) ->
+                        listOf("off" to "Обычная обложка (без GIF)", "cover" to "GIF вместо обложки", "fullscreen" to "GIF на весь экран").forEach { (value, label) ->
                             Row(Modifier.fillMaxWidth().clickable { gifMode = value; prefs.edit().putString("gif_mode", value).apply() }, verticalAlignment = Alignment.CenterVertically) {
                                 RadioButton(selected = gifMode == value, onClick = { gifMode = value; prefs.edit().putString("gif_mode", value).apply() })
                                 Text(label)
@@ -257,8 +285,27 @@ private fun SonoraApp() {
                         Text("Музыкальная библиотека", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         OutlinedButton(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Изменить папку музыки") }
                         Text("Эквалайзер: запланирован для следующего обновления. Сейчас используется стандартная обработка звука Android.", color = White.copy(alpha = .65f), fontSize = 13.sp)
-                        Text("SONORA 2.0 · beta", color = Accent)
+                        Text("SONORA 3.0 · preview", color = Accent)
                     }
+                    SonoraNavigation(selected = "settings", onNavigate = { screen = it; if (it == "library") category = "Все треки" })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SonoraNavigation(selected: String, onNavigate: (String) -> Unit) {
+    Surface(color = SurfaceDark, shape = RoundedCornerShape(25.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth().height(60.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            listOf(
+                Triple("library", Icons.Default.GridView, "Библиотека"),
+                Triple("equalizer", Icons.Default.Equalizer, "Эквалайзер"),
+                Triple("search", Icons.Default.Search, "Поиск"),
+                Triple("settings", Icons.Default.Menu, "Меню")
+            ).forEach { (id, icon, label) ->
+                IconButton(onClick = { onNavigate(id) }) {
+                    Icon(icon, contentDescription = label, modifier = Modifier.size(28.dp), tint = if (selected == id) White else White.copy(alpha = .48f))
                 }
             }
         }
